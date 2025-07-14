@@ -94,3 +94,37 @@
   color: #b8b8b8;
   margin-right: 8px;
 }
+.promptButtons {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
+}
+
+.promptButton {
+  background-color: black;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.promptButton:hover {
+  background-color: #333;
+}
+
+.promptButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.uploadForm {
+  padding: 10px;
+  order: 1;
+}
+
+.uploadInput {
+  margin-bottom: 10px;
+}
