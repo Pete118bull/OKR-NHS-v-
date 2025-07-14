@@ -1,18 +1,13 @@
-import { NextResponse } from "next/server";
+// Create a new thread
 import { openai } from "@/app/openai";
+import { NextRequest, NextResponse } from "next/server";
 
-export const runtime = "nodejs";
-
-export async function POST() {
+export async function POST(req: NextRequest) {
   try {
     const thread = await openai.beta.threads.create();
-    return NextResponse.json({ threadId: thread.id });  // ✅ Ensure correct format
+    return NextResponse.json({ threadId: thread.id });
   } catch (error: any) {
     console.error("Failed to create thread:", error);
-    return NextResponse.json(
-      { error: error.message || "Thread creation failed." },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
-
