@@ -7,7 +7,7 @@ export default function Home() {
     <main style={{ padding: "2rem", maxWidth: "800px", margin: "0 auto" }}>
       <h1>NHS OKR Assistant</h1>
       <p style={{ marginBottom: "1rem" }}>
-        Start by asking a question or click "Let’s get started" below.
+        Start by  click "Let’s get started or uploading a document" below.
       </p>
       <Chat />
     </main>
