@@ -2,7 +2,7 @@ import { assistantId } from "@/app/assistant-config";
 import { openai } from "@/app/openai";
 import { NextRequest } from "next/server";
 
-// Upload file to assistant's vector store
+// Upload file to assistant
 export async function POST(request: NextRequest) {
   const formData = await request.formData();
   const file = formData.get("file") as File;
@@ -11,18 +11,18 @@ export async function POST(request: NextRequest) {
     return new Response("Missing file", { status: 400 });
   }
 
-  const vectorStoreId = await getOrCreateVectorStore();
-
   // Upload file to OpenAI
   const openaiFile = await openai.files.create({
     file,
     purpose: "assistants",
   });
 
-  // Attach to vector store
-  await openai.beta.vectorStores.files.create({
-    vectorStoreId,
-    fileId: openaiFile.id,
+  // Attach file to assistant
+  const assistant = await openai.beta.assistants.retrieve(assistantId);
+  const existingFiles = assistant.file_ids || [];
+
+  await openai.beta.assistants.update(assistantId, {
+    file_ids: [...existingFiles, openaiFile.id],
   });
 
   return new Response(JSON.stringify({ fileId: openaiFile.id }), {
@@ -30,34 +30,24 @@ export async function POST(request: NextRequest) {
   });
 }
 
-// List files in assistant's vector store
+// List assistant files
 export async function GET() {
-  const vectorStoreId = await getOrCreateVectorStore();
+  const assistant = await openai.beta.assistants.retrieve(assistantId);
 
-  const fileList = await openai.beta.vectorStores.files.list({
-    vectorStoreId,
-  });
-
-  const filesArray = await Promise.all(
-    fileList.data.map(async (file) => {
-      const fileDetails = await openai.files.retrieve(file.id);
-      const vectorDetails = await openai.beta.vectorStores.files.retrieve({
-        vectorStoreId,
-        fileId: file.id,
-      });
-
+  const files = await Promise.all(
+    (assistant.file_ids || []).map(async (fileId) => {
+      const file = await openai.files.retrieve(fileId);
       return {
         file_id: file.id,
-        filename: fileDetails.filename,
-        status: vectorDetails.status,
+        filename: file.filename,
       };
     })
   );
 
-  return new Response(JSON.stringify(filesArray), { status: 200 });
+  return new Response(JSON.stringify(files), { status: 200 });
 }
 
-// Delete file from assistant's vector store
+// Delete assistant file
 export async function DELETE(request: NextRequest) {
   const body = await request.json();
   const fileId = body.fileId;
@@ -66,34 +56,14 @@ export async function DELETE(request: NextRequest) {
     return new Response("Missing fileId", { status: 400 });
   }
 
-  const vectorStoreId = await getOrCreateVectorStore();
+  const assistant = await openai.beta.assistants.retrieve(assistantId);
+  const updatedFileIds = (assistant.file_ids || []).filter((id) => id !== fileId);
 
-  await openai.beta.vectorStores.files.del({
-    vectorStoreId,
-    fileId,
+  await openai.beta.assistants.update(assistantId, {
+    file_ids: updatedFileIds,
   });
+
+  await openai.files.del(fileId);
 
   return new Response("File deleted", { status: 200 });
 }
-
-/* Helper to fetch or create vector store */
-const getOrCreateVectorStore = async (): Promise<string> => {
-  const assistant = await openai.beta.assistants.retrieve(assistantId);
-
-  const existingId =
-    assistant.tool_resources?.file_search?.vector_store_ids?.[0];
-
-  if (existingId) return existingId;
-
-  const vectorStore = await openai.beta.vectorStores.create({ name: "sample-assistant-vector-store" });
-
-  await openai.beta.assistants.update(assistantId, {
-    tool_resources: {
-      file_search: {
-        vector_store_ids: [vectorStore.id],
-      },
-    },
-  });
-
-  return vectorStore.id;
-};
