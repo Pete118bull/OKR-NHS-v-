@@ -11,13 +11,11 @@ export async function POST(request: NextRequest) {
     return new Response("Missing file", { status: 400 });
   }
 
-  // Upload file to OpenAI
   const openaiFile = await openai.files.create({
     file,
     purpose: "assistants",
   });
 
-  // Attach file to assistant
   const assistant = await openai.beta.assistants.retrieve(assistantId);
   const existingFiles = assistant.file_ids || [];
 
