@@ -1,6 +1,5 @@
 import { openai } from "@/app/openai";
 import { NextRequest } from "next/server";
-import { Readable } from "stream";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
