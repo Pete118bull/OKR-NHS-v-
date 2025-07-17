@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     runId,
     {
       tool_outputs: toolCallOutputs,
-    }
+    } as any // ← bypass type mismatch here
   );
 
   return new Response(stream.toReadableStream());
