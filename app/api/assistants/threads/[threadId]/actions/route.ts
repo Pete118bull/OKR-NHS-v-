@@ -5,13 +5,13 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const { threadId, runId, toolCallOutputs } = body;
 
-  const stream = await openai.beta.threads.runs.submitToolOutputs(
+  const run = await openai.beta.threads.runs.submitToolOutputs(
     threadId,
     runId,
     {
       tool_outputs: toolCallOutputs,
-    } as any // ← bypass type mismatch here
+    } as any
   );
 
-  return new Response(stream.toReadableStream());
+  return Response.json(run); // ✅ return JSON, not a stream
 }
