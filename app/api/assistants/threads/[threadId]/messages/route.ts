@@ -1,5 +1,4 @@
 // app/api/assistants/threads/[threadId]/messages/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import { openai } from "@/app/openai";
 import { assistantId } from "@/app/assistant-config";
@@ -34,7 +33,7 @@ export async function POST(
 
       const updatedRun = await openai.beta.threads.runs.retrieve(
         runId,
-        { thread_id: threadId } // ✅ Correct param order
+        { thread_id: threadId }
       );
 
       status = updatedRun.status;
@@ -49,7 +48,12 @@ export async function POST(
     const messages = await openai.beta.threads.messages.list(threadId);
     const last = messages.data.find((m) => m.role === "assistant");
 
-    return NextResponse.json({ reply: last?.content[0]?.text?.value || "" });
+    const contentBlock = last?.content?.[0];
+    if (contentBlock?.type === "text") {
+      return NextResponse.json({ reply: contentBlock.text?.value || "" });
+    }
+
+    return NextResponse.json({ reply: "" });
 
   } catch (err: any) {
     console.error("Error handling assistant message:", err);
