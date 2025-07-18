@@ -4,8 +4,12 @@ import React, { useState, useEffect, useRef } from "react";
 import styles from "./chat.module.css";
 import Markdown from "react-markdown";
 
-type Role = "system" | "user" | "assistant" | "code";
-type MessageProps = { role: Role; text: string };
+export type Role = "system" | "user" | "assistant" | "code";
+export type MessageProps = { role: Role; text: string };
+
+type ChatProps = {
+  functionCallHandler?: (call: any) => Promise<string | undefined>;
+};
 
 const UserMessage = ({ text }: { text: string }) => (
   <div className={styles.userMessage}>{text}</div>
@@ -33,7 +37,7 @@ const Message = ({ role, text }: MessageProps) => {
   return null;
 };
 
-export default function Chat() {
+export default function Chat({ functionCallHandler }: ChatProps) {
   const [threadId, setThreadId] = useState<string>("");
   const [messages, setMessages] = useState<MessageProps[]>([
     {
@@ -54,7 +58,6 @@ export default function Chat() {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // 1) Create thread
   useEffect(() => {
     (async () => {
       const res = await fetch("/api/assistants/threads", { method: "POST" });
@@ -63,45 +66,36 @@ export default function Chat() {
     })();
   }, []);
 
-  // 2) Send a normal chat message
   const sendMessage = async (text: string) => {
     if (!threadId) return;
     setInputDisabled(true);
     setMessages((m) => [...m, { role: "user", text }]);
 
     try {
-      const res = await fetch(
-        `/api/assistants/threads/${threadId}/messages`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ history: messages, content: text }),
-        }
-      );
+      const res = await fetch(`/api/assistants/threads/${threadId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ history: messages, content: text }),
+      });
       const { reply, error } = await res.json();
       setMessages((m) => [
         ...m,
         { role: "assistant", text: error ? `[Error] ${error}` : reply },
       ]);
     } catch (err) {
-      setMessages((m) => [
-        ...m,
-        { role: "assistant", text: "[Assistant error]" },
-      ]);
+      setMessages((m) => [...m, { role: "assistant", text: "[Assistant error]" }]);
     } finally {
       setUserInput("");
       setInputDisabled(false);
     }
   };
 
-  // 3) Handle input submit
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const t = userInput.trim();
     if (t) sendMessage(t);
   };
 
-  // 4) Handle file upload
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !threadId) return;
@@ -192,5 +186,5 @@ export default function Chat() {
         </form>
       )}
     </div>
-);
+  );
 }
