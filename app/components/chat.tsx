@@ -60,9 +60,15 @@ export default function Chat({ functionCallHandler }: ChatProps) {
 
   useEffect(() => {
     (async () => {
-      const res = await fetch("/api/assistants/threads", { method: "POST" });
-      const { threadId: newId } = await res.json();
-      setThreadId(newId);
+      console.log("Attempting to create thread...");
+      try {
+        const res = await fetch("/api/assistants/threads", { method: "POST" });
+        const data = await res.json();
+        console.log("Thread created:", data.threadId);
+        setThreadId(data.threadId);
+      } catch (err) {
+        console.error("Thread creation failed:", err);
+      }
     })();
   }, []);
 
