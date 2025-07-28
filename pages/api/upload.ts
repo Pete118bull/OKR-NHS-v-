@@ -106,7 +106,7 @@ export default async function handler(
     return res.status(500).json({ error: "Failed to extract text." });
   }
 
- // 7) Forward full history + file content into chat endpoint
+// 7) Forward full history + file content into chat endpoint
 try {
   const url = `${process.env.NEXT_PUBLIC_BASE_URL}/api/assistants/threads/${threadId}/messages`;
   console.log("📤 Forwarding to chat endpoint:", url);
@@ -150,4 +150,5 @@ try {
 } catch (err: any) {
   console.error("❌ Forward error:", err);
   return res.status(500).json({ error: "Failed to forward to assistant." });
+}
 }
