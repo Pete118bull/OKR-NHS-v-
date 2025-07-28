@@ -108,10 +108,12 @@ export default async function handler(
 
  // 7) Forward full history + file content into chat endpoint
 try {
-  console.log("📤 Forwarding to chat:", { threadId, historyLength: history.length });
-
   const url = `${process.env.NEXT_PUBLIC_BASE_URL}/api/assistants/threads/${threadId}/messages`;
-  console.log("🚀 Upload is forwarding to:", url); // 🐛 Debug line added
+  console.log("📤 Forwarding to chat endpoint:", url);
+  console.log("📤 Request payload:", {
+    historyLength: history.length,
+    preview: text.slice(0, 300),
+  });
 
   const chatRes = await fetch(url, {
     method: "POST",
@@ -122,21 +124,23 @@ try {
     }),
   });
 
-  const textBody = await chatRes.text(); // Parse as text first
-  console.log("📥 Raw chat response:", chatRes.status, textBody);
+  const responseText = await chatRes.text();
+  console.log("📥 Raw response text:", responseText);
 
-  let chatJson: any;
+  let chatJson;
   try {
-    chatJson = JSON.parse(textBody);
-  } catch (jsonErr) {
-    console.error("❌ JSON parsing failed:", jsonErr);
+    chatJson = JSON.parse(responseText);
+  } catch (parseError) {
+    console.error("❌ Failed to parse JSON response from assistant:", parseError);
     return res.status(500).json({ error: "Received malformed response from assistant." });
   }
 
+  console.log("📥 Chat replied:", chatRes.status, chatJson);
+
   if (!chatRes.ok) {
-    return res
-      .status(chatRes.status)
-      .json({ error: chatJson.error || "Assistant error." });
+    return res.status(chatRes.status).json({
+      error: chatJson.error || "Assistant error.",
+    });
   }
 
   return res.status(200).json({
@@ -144,7 +148,6 @@ try {
     filePreview: text.slice(0, 1000),
   });
 } catch (err: any) {
-    console.error("Forward error:", err);
-    return res.status(500).json({ error: "Failed to forward to assistant." });
-  }
+  console.error("❌ Forward error:", err);
+  return res.status(500).json({ error: "Failed to forward to assistant." });
 }
