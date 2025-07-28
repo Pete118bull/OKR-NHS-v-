@@ -46,7 +46,9 @@ export async function POST(
 
     // 4. Retrieve last assistant message
     const messages = await openai.beta.threads.messages.list(threadId);
-    const last = messages.data.find((m) => m.role === "assistant");
+console.log("📥 Assistant messages:", JSON.stringify(messages.data, null, 2));
+
+const last = messages.data.find((m) => m.role === "assistant");
 
     const contentBlock = last?.content?.[0];
     if (contentBlock?.type === "text") {
