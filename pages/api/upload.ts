@@ -5,7 +5,6 @@ import fs from "fs";
 import pdf from "pdf-parse";
 import mammoth from "mammoth";
 
-// Disable Next’s default body parser so formidable can parse multipart
 export const config = { api: { bodyParser: false } };
 
 export default async function handler(
@@ -19,14 +18,10 @@ export default async function handler(
     return res.status(405).json({ error: "Method Not Allowed" });
   }
 
-  // 1) Parse form data
   let fields: Record<string, string | string[]>;
   let files: Record<string, File | File[]>;
   try {
-    const { fields: flds, files: fls } = await new Promise<{
-      fields: Record<string, string | string[]>;
-      files: Record<string, File | File[]>;
-    }>((resolve, reject) => {
+    const { fields: flds, files: fls } = await new Promise((resolve, reject) => {
       new IncomingForm().parse(req, (err, fields, files) => {
         if (err) reject(err);
         else resolve({ fields, files });
@@ -36,19 +31,15 @@ export default async function handler(
     files = fls;
   } catch (err: any) {
     console.error("Form parsing error:", err);
-    return res
-      .status(500)
-      .json({ error: "Failed to parse form data: " + err.message });
+    return res.status(500).json({ error: "Failed to parse form data: " + err.message });
   }
 
-  // 2) Normalize the file
   let fileField = files.file;
   if (Array.isArray(fileField)) fileField = fileField[0];
   if (!fileField) {
     return res.status(400).json({ error: "Missing file field" });
   }
 
-  // 3) Normalize the threadId
   let rawTid = fields.threadId;
   if (!rawTid) {
     return res.status(400).json({ error: "Missing threadId field" });
@@ -59,7 +50,6 @@ export default async function handler(
     return res.status(400).json({ error: "Invalid threadId" });
   }
 
-  // 4) Normalize history
   let rawHist = fields.history;
   if (!rawHist) {
     return res.status(400).json({ error: "Missing history field" });
@@ -73,7 +63,6 @@ export default async function handler(
     return res.status(400).json({ error: "Invalid history JSON" });
   }
 
-  // 5) Read file into buffer
   const tempPath = (fileField as any).filepath || (fileField as any).path;
   if (typeof tempPath !== "string") {
     return res.status(500).json({ error: "Unable to locate uploaded file" });
@@ -86,7 +75,6 @@ export default async function handler(
     return res.status(500).json({ error: "Failed to read file: " + err.message });
   }
 
-  // 6) Extract text
   let text = "";
   try {
     if (fileField.mimetype === "application/pdf") {
@@ -97,18 +85,16 @@ export default async function handler(
     ) {
       text = (await mammoth.extractRawText({ buffer })).value;
     } else {
-      return res
-        .status(400)
-        .json({ error: `Unsupported file type: ${fileField.mimetype}` });
+      return res.status(400).json({ error: `Unsupported file type: ${fileField.mimetype}` });
     }
   } catch (err: any) {
     console.error("Extract error:", err);
     return res.status(500).json({ error: "Failed to extract text." });
   }
 
-  // 7) Forward full history + file content into chat endpoint
   try {
     console.log("📤 Forwarding to chat:", { threadId, historyLength: history.length });
+
     const chatRes = await fetch(
       `${process.env.NEXT_PUBLIC_BASE_URL}/api/assistants/threads/${threadId}/messages`,
       {
@@ -120,13 +106,22 @@ export default async function handler(
         }),
       }
     );
-    const chatJson = await chatRes.json();
+
+    let chatJson: any;
+    try {
+      chatJson = await chatRes.json();
+    } catch {
+      const rawText = await chatRes.text();
+      console.error("Non-JSON response:", rawText);
+      return res.status(500).json({ error: "Non-JSON response from assistant: " + rawText });
+    }
+
     console.log("📥 Chat replied:", chatRes.status, chatJson);
 
     if (!chatRes.ok) {
-      return res
-        .status(chatRes.status)
-        .json({ error: chatJson.error || "Assistant error." });
+      return res.status(chatRes.status).json({
+        error: chatJson.error || "Assistant error.",
+      });
     }
 
     return res.status(200).json({
