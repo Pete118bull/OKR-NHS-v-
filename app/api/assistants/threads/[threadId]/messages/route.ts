@@ -31,9 +31,10 @@ export async function POST(
     while (status !== "completed" && status !== "failed") {
       await new Promise((res) => setTimeout(res, 1000));
 
-      const updatedRun = await openai.beta.threads.runs.retrieve(runId, {
-        thread_id: threadId,
-      });
+      const updatedRun = await openai.beta.threads.runs.retrieve(
+        runId,
+        { thread_id: threadId }
+      );
 
       status = updatedRun.status;
       console.debug("Run status:", status);
@@ -47,18 +48,15 @@ export async function POST(
     const messages = await openai.beta.threads.messages.list(threadId);
     const last = messages.data.find((m) => m.role === "assistant");
 
-    if (!last || !last.content || last.content.length === 0) {
-      console.warn("No assistant content found in messages");
-      return NextResponse.json({ error: "Empty assistant response" }, { status: 500 });
+    const contentBlock = last?.content?.[0];
+    if (contentBlock?.type === "text") {
+      return NextResponse.json({ reply: contentBlock.text?.value || "" });
     }
 
-    const responseText = last.content
-      .map((block) => ("text" in block ? block.text.value : ""))
-      .join("\n");
+    return NextResponse.json({ reply: "" });
 
-    return NextResponse.json({ content: responseText });
-  } catch (error: any) {
-    console.error("❌ Assistant error:", error);
-    return NextResponse.json({ error: error.message || "Unknown error" }, { status: 500 });
+  } catch (err: any) {
+    console.error("Error handling assistant message:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
