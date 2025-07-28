@@ -5,7 +5,6 @@ import fs from "fs";
 import pdf from "pdf-parse";
 import mammoth from "mammoth";
 
-// Disable Next’s default body parser so formidable can parse multipart
 export const config = { api: { bodyParser: false } };
 
 export default async function handler(
@@ -19,7 +18,6 @@ export default async function handler(
     return res.status(405).json({ error: "Method Not Allowed" });
   }
 
-  // 1) Parse form data
   let fields: Record<string, string | string[]>;
   let files: Record<string, File | File[]>;
   try {
@@ -36,19 +34,15 @@ export default async function handler(
     files = result.files;
   } catch (err: any) {
     console.error("Form parsing error:", err);
-    return res
-      .status(500)
-      .json({ error: "Failed to parse form data: " + err.message });
+    return res.status(500).json({ error: "Failed to parse form data: " + err.message });
   }
 
-  // 2) Normalize the file
   let fileField = files.file;
   if (Array.isArray(fileField)) fileField = fileField[0];
   if (!fileField) {
     return res.status(400).json({ error: "Missing file field" });
   }
 
-  // 3) Normalize the threadId
   let rawTid = fields.threadId;
   if (!rawTid) {
     return res.status(400).json({ error: "Missing threadId field" });
@@ -59,7 +53,6 @@ export default async function handler(
     return res.status(400).json({ error: "Invalid threadId" });
   }
 
-  // 4) Normalize history
   let rawHist = fields.history;
   if (!rawHist) {
     return res.status(400).json({ error: "Missing history field" });
@@ -73,7 +66,6 @@ export default async function handler(
     return res.status(400).json({ error: "Invalid history JSON" });
   }
 
-  // 5) Read file into buffer
   const tempPath = (fileField as any).filepath || (fileField as any).path;
   if (typeof tempPath !== "string") {
     return res.status(500).json({ error: "Unable to locate uploaded file" });
@@ -86,7 +78,6 @@ export default async function handler(
     return res.status(500).json({ error: "Failed to read file: " + err.message });
   }
 
-  // 6) Extract text
   let text = "";
   try {
     if (fileField.mimetype === "application/pdf") {
@@ -97,20 +88,17 @@ export default async function handler(
     ) {
       text = (await mammoth.extractRawText({ buffer })).value;
     } else {
-      return res
-        .status(400)
-        .json({ error: `Unsupported file type: ${fileField.mimetype}` });
+      return res.status(400).json({ error: `Unsupported file type: ${fileField.mimetype}` });
     }
   } catch (err: any) {
     console.error("Extract error:", err);
     return res.status(500).json({ error: "Failed to extract text." });
   }
 
-  // 7) Forward full history + file content into chat endpoint
   try {
     const url = `${process.env.NEXT_PUBLIC_BASE_URL}/api/assistants/threads/${threadId}/messages`;
-    console.log("📤 Forwarding to chat:", url);
-    console.log("📤 Sending payload:", {
+    console.log("\u{1F4E4} Forwarding to chat:", url);
+    console.log("\u{1F4E4} Sending payload:", {
       historyLength: history.length,
       textSnippet: text.slice(0, 300),
     });
@@ -120,33 +108,29 @@ export default async function handler(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         history,
-        content: "📄 I’ve uploaded a file. Please read and provide insights:\n\n" + text,
+        content: "\u{1F4C4} I’ve uploaded a file. Please read and provide insights:\n\n" + text,
       }),
     });
 
     const raw = await chatRes.text();
-    console.log("📥 Raw assistant response (as text):", raw);
+    console.log("\u{1F4E5} Raw assistant response (as text):", raw);
 
     let chatJson;
     try {
       chatJson = JSON.parse(raw);
     } catch (parseErr) {
       console.error("❌ JSON parse failed:", parseErr);
-      return res.status(500).json({
-        error: "Received malformed response from assistant.",
-      });
+      return res.status(500).json({ error: "Received malformed response from assistant." });
     }
 
-    console.log("📥 Parsed JSON:", chatJson);
+    console.log("\u{1F4E5} Parsed JSON:", chatJson);
 
     if (!chatRes.ok) {
-      return res.status(chatRes.status).json({
-        error: chatJson.error || "Assistant error.",
-      });
+      return res.status(chatRes.status).json({ error: chatJson.error || "Assistant error." });
     }
 
     return res.status(200).json({
-      reply: chatJson.reply,
+      reply: chatJson.content,
       filePreview: text.slice(0, 1000),
     });
   } catch (err: any) {
