@@ -144,6 +144,7 @@ try {
     filePreview: text.slice(0, 1000),
   });
 } catch (err: any) {
-  console.error("Forward error:", err);
-  return res.status(500).json({ error: "Failed to forward to assistant." });
+    console.error("Forward error:", err);
+    return res.status(500).json({ error: "Failed to forward to assistant." });
+  }
 }
