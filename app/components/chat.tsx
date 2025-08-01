@@ -39,16 +39,7 @@ const Message = ({ role, text }: MessageProps) => {
 
 export default function Chat({ functionCallHandler }: ChatProps) {
   const [threadId, setThreadId] = useState<string>("");
-  const [messages, setMessages] = useState<MessageProps[]>([
-    {
-      role: "system",
-      text:
-        "You are the OKR Assistant. When the user clicks “Let’s get started,” ask them to clarify:\n" +
-        "• Review an existing OKR\n" +
-        "• Develop a new OKR\n" +
-        "• Ask a specific question about OKRs or logic modelling",
-    },
-  ]);
+  const [messages, setMessages] = useState<MessageProps[]>([]);
   const [userInput, setUserInput] = useState("");
   const [inputDisabled, setInputDisabled] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
@@ -58,27 +49,13 @@ export default function Chat({ functionCallHandler }: ChatProps) {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  useEffect(() => {
-    (async () => {
-      console.log("Attempting to create thread...");
-      try {
-        const res = await fetch("/api/assistants/threads", { method: "POST" });
-        const data = await res.json();
-        console.log("Thread created:", data.threadId);
-        setThreadId(data.threadId);
-      } catch (err) {
-        console.error("Thread creation failed:", err);
-      }
-    })();
-  }, []);
-
   const sendMessage = async (text: string) => {
     if (!threadId) return;
     setInputDisabled(true);
     setMessages((m) => [...m, { role: "user", text }]);
 
     try {
-      const res = await fetch(/api/assistants/threads/${threadId}/messages, {
+      const res = await fetch(`/api/assistants/threads/${threadId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ history: messages, content: text }),
@@ -86,7 +63,7 @@ export default function Chat({ functionCallHandler }: ChatProps) {
       const { reply, error } = await res.json();
       setMessages((m) => [
         ...m,
-        { role: "assistant", text: error ? [Error] ${error} : reply },
+        { role: "assistant", text: error ? `[Error] ${error}` : reply },
       ]);
     } catch (err) {
       setMessages((m) => [...m, { role: "assistant", text: "[Assistant error]" }]);
@@ -104,34 +81,75 @@ export default function Chat({ functionCallHandler }: ChatProps) {
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !threadId) return;
+    if (!file) return;
 
-    const form = new FormData();
-    form.append("file", file);
-    form.append("threadId", threadId);
-    form.append("history", JSON.stringify(messages));
-
-    setInputDisabled(true);
     try {
-      const res = await fetch("/api/upload", { method: "POST", body: form });
+      const res = await fetch("/api/assistants/threads", { method: "POST" });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      const newThreadId = data.threadId;
+      setThreadId(newThreadId);
 
-      setMessages((m) => [...m, { role: "assistant", text: data.reply }]);
-      if (data.filePreview) {
+      const newSystemMessage = {
+        role: "system",
+        text:
+          "You are the OKR Assistant. When the user clicks “Let’s get started,” ask them to clarify:\n" +
+          "• Review an existing OKR\n" +
+          "• Develop a new OKR\n" +
+          "• Ask a specific question about OKRs or logic modelling",
+      };
+
+      setMessages([newSystemMessage]);
+
+      const form = new FormData();
+      form.append("file", file);
+      form.append("threadId", newThreadId);
+      form.append("history", JSON.stringify([newSystemMessage]));
+
+      setInputDisabled(true);
+      const uploadRes = await fetch("/api/upload", { method: "POST", body: form });
+      const uploadData = await uploadRes.json();
+
+      if (!uploadRes.ok) throw new Error(uploadData.error);
+
+      setMessages((m) => [...m, { role: "assistant", text: uploadData.reply }]);
+      if (uploadData.filePreview) {
         setMessages((m) => [
           ...m,
-          { role: "assistant", text: Preview:\n${data.filePreview} },
+          { role: "assistant", text: `Preview:\n${uploadData.filePreview}` },
         ]);
       }
     } catch (err: any) {
       setMessages((m) => [
         ...m,
-        { role: "assistant", text: ❌ Upload error: ${err.message} },
+        { role: "assistant", text: `❌ Upload error: ${err.message}` },
       ]);
     } finally {
       setInputDisabled(false);
       e.target.value = "";
+    }
+  };
+
+  const handleStart = async () => {
+    try {
+      const res = await fetch("/api/assistants/threads", { method: "POST" });
+      const data = await res.json();
+      const newThreadId = data.threadId;
+      setThreadId(newThreadId);
+
+      const newSystemMessage = {
+        role: "system",
+        text:
+          "You are the OKR Assistant. When the user clicks “Let’s get started,” ask them to clarify:\n" +
+          "• Review an existing OKR\n" +
+          "• Develop a new OKR\n" +
+          "• Ask a specific question about OKRs or logic modelling",
+      };
+
+      setMessages([newSystemMessage]);
+      await sendMessage("Let's get started");
+      setHasStarted(true);
+    } catch (err) {
+      console.error("Error starting conversation:", err);
     }
   };
 
@@ -140,29 +158,8 @@ export default function Chat({ functionCallHandler }: ChatProps) {
       {!hasStarted && (
         <div className={styles.examplePrompts}>
           <button
-  onClick={async () => {
-    try {
-      const res = await fetch("/api/assistants/threads", { method: "POST" });
-      const data = await res.json();
-      setThreadId(data.threadId);
-      setMessages([
-        {
-          role: "system",
-          text:
-            "You are the OKR Assistant. When the user clicks “Let’s get started,” ask them to clarify:\n" +
-            "• Review an existing OKR\n" +
-            "• Develop a new OKR\n" +
-            "• Ask a specific question about OKRs or logic modelling",
-        },
-      ]);
-      await sendMessage("Let's get started");
-      setHasStarted(true);
-    } catch (err) {
-      console.error("Error starting conversation:", err);
-    }
-  }}
-
-            disabled={inputDisabled || !threadId}
+            onClick={handleStart}
+            disabled={inputDisabled}
             className={styles.promptButton}
           >
             Let’s get started
@@ -174,7 +171,7 @@ export default function Chat({ functionCallHandler }: ChatProps) {
         <input
           type="file"
           onChange={handleFileUpload}
-          disabled={inputDisabled || !threadId}
+          disabled={inputDisabled}
           className={styles.uploadInput}
         />
       </form>
