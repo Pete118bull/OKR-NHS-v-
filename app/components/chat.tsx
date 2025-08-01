@@ -140,10 +140,28 @@ export default function Chat({ functionCallHandler }: ChatProps) {
       {!hasStarted && (
         <div className={styles.examplePrompts}>
           <button
-            onClick={() => {
-              sendMessage("Let's get started");
-              setHasStarted(true);
-            }}
+  onClick={async () => {
+    try {
+      const res = await fetch("/api/assistants/threads", { method: "POST" });
+      const data = await res.json();
+      setThreadId(data.threadId);
+      setMessages([
+        {
+          role: "system",
+          text:
+            "You are the OKR Assistant. When the user clicks “Let’s get started,” ask them to clarify:\n" +
+            "• Review an existing OKR\n" +
+            "• Develop a new OKR\n" +
+            "• Ask a specific question about OKRs or logic modelling",
+        },
+      ]);
+      await sendMessage("Let's get started");
+      setHasStarted(true);
+    } catch (err) {
+      console.error("Error starting conversation:", err);
+    }
+  }}
+
             disabled={inputDisabled || !threadId}
             className={styles.promptButton}
           >
