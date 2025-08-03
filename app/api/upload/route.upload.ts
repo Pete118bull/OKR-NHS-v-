@@ -1,105 +1,77 @@
-// app/api/upload/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import pdf from "pdf-parse";
-import mammoth from "mammoth";
+import { OpenAI } from "openai";
 
-export const runtime = "nodejs";
-
-// 1) Quick GET to verify the route exists
-export async function GET() {
-  return NextResponse.json({ ok: true });
-}
+const openai = new OpenAI(); // Uses OPENAI_API_KEY from environment
 
 export async function POST(req: NextRequest) {
-  // 2) Pull file & threadId out of the FormData
-  const formData = await req.formData();
-  const file = formData.get("file") as Blob | null;
-  const threadId = formData.get("threadId") as string | null;
-
-  if (!file || !threadId) {
-    return NextResponse.json(
-      { error: "Missing file or thread ID." },
-      { status: 400 }
-    );
-  }
-
-  // 3) Read the file into a Buffer
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-
-  // 4) Extract text depending on MIME type
-  let text = "";
-  const mime = (file as any).type;
   try {
-    if (mime === "application/pdf") {
-      const data = await pdf(buffer);
-      text = data.text;
-    } else if (
-      mime ===
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    ) {
-      const { value } = await mammoth.extractRawText({ buffer });
-      text = value;
-    } else {
-      return NextResponse.json(
-        { error: `Unsupported file type: ${mime}` },
-        { status: 400 }
-      );
+    const formData = await req.formData();
+    const file = formData.get("file") as File;
+    const threadId = formData.get("threadId") as string;
+
+    if (!file || !threadId) {
+      return NextResponse.json({ error: "Missing file or threadId" }, { status: 400 });
     }
-  } catch (err: any) {
-    console.error("File parsing error:", err);
-    return NextResponse.json(
-      { error: "Failed to parse file: " + err.message },
-      { status: 500 }
-    );
-  }
 
-  // 5) Forward the extracted text into the chat messages route
-  try {
-    const chatRes = await fetch(
-      `${process.env.NEXT_PUBLIC_BASE_URL}/api/assistants/threads/${threadId}/messages`,
+    // Upload the file to OpenAI
+    const uploadedFile = await openai.files.create({
+      file,
+      purpose: "assistants",
+    });
+
+    // Add message to thread with the file
+    await openai.beta.threads.messages.create(
+      threadId,
       {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          history: [], 
-          content:
-            "📄 I’ve uploaded a file. Please read the following content and provide insights:\n\n" +
-            text,
-        }),
+        role: "user",
+        content: "Please review this document for OKRs.",
+        file_ids: [uploadedFile.id],
+      } as any
+    );
+
+    // Start a Run with explicit upload instructions
+    const run = await openai.beta.threads.runs.create(
+      threadId,
+      {
+        assistant_id: process.env.OKR_ASSISTANT_ID!,
+        instructions: `
+When a file is uploaded:
+1. Read and analyse for outcome, impact, key steps, dependencies, and OKRs.
+2. Begin your response with: “Thanks, it looks like you are trying to…” followed by a single-sentence summary of the document's purpose.
+3. Then ask: “Would you like to review or refine this OKR together using the logic model and OKR framework?”
+        `.trim(),
       }
     );
 
-    let chatJson;
-    try {
-      chatJson = await chatRes.json();
-    } catch {
-      const bodyText = await chatRes.text();
-      console.error("Non-JSON response from chat:", bodyText);
-      return NextResponse.json(
-        { error: "Failed to parse assistant response." },
-        { status: 500 }
-      );
+    // Poll for run to complete
+    let runStatus = run.status;
+    while (runStatus !== "completed" && runStatus !== "failed" && runStatus !== "cancelled") {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      const updatedRun = await openai.beta.threads.runs.retrieve(threadId, run.id);
+      runStatus = updatedRun.status;
     }
 
-    if (!chatRes.ok) {
-      console.error("Assistant reply error:", chatJson);
-      return NextResponse.json(
-        { error: chatJson.error || "Failed to get assistant response." },
-        { status: chatRes.status }
-      );
+    if (runStatus !== "completed") {
+      return NextResponse.json({ error: "Assistant run failed or was cancelled." }, { status: 500 });
     }
+
+    // Get the latest assistant message
+    const messageList = await openai.beta.threads.messages.list({ thread_id: threadId });
+    const latestMessage = messageList.data.find((msg) => msg.role === "assistant");
+
+    const reply =
+      latestMessage?.content?.[0]?.type === "text"
+        ? latestMessage.content[0].text.value
+        : "[No assistant response found]";
 
     return NextResponse.json({
-      reply: chatJson.reply,
-      filePreview: text.slice(0, 1000),
+      thread_id: threadId,
+      run_id: run.id,
+      reply,
     });
   } catch (err: any) {
-    console.error("Chat forwarding error:", err);
-    return NextResponse.json(
-      { error: err.message || "Failed to forward file to assistant." },
-      { status: 500 }
-    );
+    console.error("Upload handler error:", err);
+    return NextResponse.json({ error: err.message || "Upload failed" }, { status: 500 });
   }
 }
 
