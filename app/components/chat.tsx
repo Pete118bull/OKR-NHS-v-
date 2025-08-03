@@ -89,7 +89,7 @@ export default function Chat({ functionCallHandler }: ChatProps) {
       const newThreadId = data.threadId;
       setThreadId(newThreadId);
 
-      const newSystemMessage = {
+      const newSystemMessage: MessageProps = {
         role: "system",
         text:
           "You are the OKR Assistant. When the user clicks “Let’s get started,” ask them to clarify:\n" +
@@ -136,7 +136,7 @@ export default function Chat({ functionCallHandler }: ChatProps) {
       const newThreadId = data.threadId;
       setThreadId(newThreadId);
 
-      const newSystemMessage = {
+      const newSystemMessage: MessageProps = {
         role: "system",
         text:
           "You are the OKR Assistant. When the user clicks “Let’s get started,” ask them to clarify:\n" +
