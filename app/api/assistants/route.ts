@@ -28,13 +28,13 @@ export async function POST(req: NextRequest) {
         role: "user",
         content: "Please review this document for OKRs.",
         file_ids: [uploadedFile.id],
-      }
+      } as any // workaround for TypeScript not recognizing 'file_ids'
     );
 
     // Start run with enforced OKR-specific file analysis instructions
     const run = await openai.beta.threads.runs.create({
       thread_id: thread.id,
-      assistant_id: process.env.OKR_ASSISTANT_ID!, // Set this in .env or Vercel
+      assistant_id: process.env.OKR_ASSISTANT_ID!, // must be defined in .env or Vercel
       instructions: `
 When a file is uploaded:
 1. Read and analyse for outcome, impact, key steps, dependencies, and OKRs.
@@ -49,3 +49,4 @@ When a file is uploaded:
     return NextResponse.json({ error: "Assistant failed to process file" }, { status: 500 });
   }
 }
+
