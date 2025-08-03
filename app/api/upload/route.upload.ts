@@ -46,10 +46,13 @@ When a file is uploaded:
     // Poll for run to complete
     let runStatus = run.status;
     while (runStatus !== "completed" && runStatus !== "failed" && runStatus !== "cancelled") {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      const updatedRun = await openai.beta.threads.runs.retrieve(threadId, run.id);
-      runStatus = updatedRun.status;
-    }
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+  const updatedRun = await openai.beta.threads.runs.retrieve({
+    thread_id: threadId,
+    run_id: run.id,
+  });
+  runStatus = updatedRun.status;
+}
 
     if (runStatus !== "completed") {
       return NextResponse.json({ error: "Assistant run failed or was cancelled." }, { status: 500 });
