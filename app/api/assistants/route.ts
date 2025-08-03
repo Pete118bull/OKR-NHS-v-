@@ -22,17 +22,19 @@ export async function POST(req: NextRequest) {
     const thread = await openai.beta.threads.create();
 
     // Add user message referencing the file
-    await openai.beta.threads.messages.create({
-      thread_id: thread.id,
-      role: "user",
-      content: "Please review this document for OKRs.",
-      file_ids: [uploadedFile.id],
-    });
+    await openai.beta.threads.messages.create(
+      thread.id,
+      {
+        role: "user",
+        content: "Please review this document for OKRs.",
+        file_ids: [uploadedFile.id],
+      }
+    );
 
     // Start run with enforced OKR-specific file analysis instructions
     const run = await openai.beta.threads.runs.create({
       thread_id: thread.id,
-      assistant_id: process.env.OKR_ASSISTANT_ID!, // ensure this is set in your .env or Vercel dashboard
+      assistant_id: process.env.OKR_ASSISTANT_ID!, // Set this in .env or Vercel
       instructions: `
 When a file is uploaded:
 1. Read and analyse for outcome, impact, key steps, dependencies, and OKRs.
