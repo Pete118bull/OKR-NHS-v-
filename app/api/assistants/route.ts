@@ -1,38 +1,49 @@
-import { openai } from "@/app/openai";
+import { OpenAI } from "openai";
+import { NextRequest, NextResponse } from "next/server";
 
-export const runtime = "nodejs";
+const openai = new OpenAI(); // Uses OPENAI_API_KEY from environment
 
-// Create a new assistant
-export async function POST() {
-  const assistant = await openai.beta.assistants.create({
-    instructions: "You are a helpful assistant.",
-    name: "Quickstart Assistant",
-    model: "gpt-4o",
-    tools: [
-      { type: "code_interpreter" },
-      {
-        type: "function",
-        function: {
-          name: "get_weather",
-          description: "Determine weather in my location",
-          parameters: {
-            type: "object",
-            properties: {
-              location: {
-                type: "string",
-                description: "The city and state e.g. San Francisco, CA",
-              },
-              unit: {
-                type: "string",
-                enum: ["c", "f"],
-              },
-            },
-            required: ["location"],
-          },
-        },
-      },
-      { type: "file_search" },
-    ],
-  });
-  return Response.json({ assistantId: assistant.id });
+export async function POST(req: NextRequest) {
+  const formData = await req.formData();
+  const file = formData.get("file") as File;
+
+  if (!file) {
+    return NextResponse.json({ error: "No file provided" }, { status: 400 });
+  }
+
+  try {
+    // Upload file to OpenAI
+    const uploadedFile = await openai.files.create({
+      file,
+      purpose: "assistants",
+    });
+
+    // Create new thread
+    const thread = await openai.beta.threads.create();
+
+    // Add user message referencing the file
+    await openai.beta.threads.messages.create({
+      thread_id: thread.id,
+      role: "user",
+      content: "Please review this document for OKRs.",
+      file_ids: [uploadedFile.id],
+    });
+
+    // Start run with enforced OKR-specific file analysis instructions
+    const run = await openai.beta.threads.runs.create({
+      thread_id: thread.id,
+      assistant_id: process.env.OKR_ASSISTANT_ID!, // ensure this is set in your .env or Vercel dashboard
+      instructions: `
+When a file is uploaded:
+1. Read and analyse for outcome, impact, key steps, dependencies, and OKRs.
+2. Begin your response with: “Thanks, it looks like you are trying to…” followed by a single-sentence summary of the document's purpose.
+3. Then ask: “Would you like to review or refine this OKR together using the logic model and OKR framework?”
+      `.trim(),
+    });
+
+    return NextResponse.json({ thread_id: thread.id, run_id: run.id });
+  } catch (error) {
+    console.error("Upload or Assistant Run Error:", error);
+    return NextResponse.json({ error: "Assistant failed to process file" }, { status: 500 });
+  }
 }
