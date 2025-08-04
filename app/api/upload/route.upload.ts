@@ -36,7 +36,10 @@ When a file is uploaded:
     let runStatus = run.status;
     while (!['completed', 'failed', 'cancelled'].includes(runStatus)) {
       await new Promise((r) => setTimeout(r, 2000));
-      const updated = await openai.beta.threads.runs.retrieve(threadId, run.id);
+      const updated = await openai.beta.threads.runs.retrieve({
+  thread_id: threadId,
+  run_id: run.id,
+});
       runStatus = updated.status;
     }
 
