@@ -108,7 +108,7 @@ export default async function handler(
 
   // 7) Forward full history + file content into chat endpoint
   try {
-    const url = ${process.env.NEXT_PUBLIC_BASE_URL}/api/assistants/threads/${threadId}/messages;
+    const url = `${process.env.NEXT_PUBLIC_BASE_URL}/api/assistants/threads/${threadId}/messages`;
     console.log("📤 Forwarding to chat:", url);
     console.log("📤 Sending payload:", {
       historyLength: history.length,
