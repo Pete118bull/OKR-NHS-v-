@@ -7,10 +7,9 @@ export default function Home() {
     <main style={{ padding: "2rem", maxWidth: "800px", margin: "0 auto" }}>
       <h1>NHS OKR Assistant</h1>
       <p style={{ marginBottom: "1rem" }}>
-        To get started, you can either click <strong>"Let’s get started"</strong> or upload a document below.
+        To get started, you can  <strong>"Let’s get started"</strong> or upload a document below.
         <br />
-        <br />
-        When the conversation begins, the assistant will ask:
+        
         <br />
         <em>
           “Just to be clear, could you let me know what you'd like to do today?<br />
