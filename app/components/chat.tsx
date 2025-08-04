@@ -112,12 +112,7 @@ export default function Chat({ functionCallHandler }: ChatProps) {
       if (!uploadRes.ok) throw new Error(uploadData.error);
 
       setMessages((m) => [...m, { role: "assistant", text: uploadData.reply }]);
-      if (uploadData.filePreview) {
-        setMessages((m) => [
-          ...m,
-          { role: "assistant", text: `Preview:\n${uploadData.filePreview}` },
-        ]);
-      }
+     
     } catch (err: any) {
       setMessages((m) => [
         ...m,
