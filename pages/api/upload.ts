@@ -99,7 +99,7 @@ export default async function handler(
     } else {
       return res
         .status(400)
-        .json({ error: Unsupported file type: ${fileField.mimetype} });
+       .json({ error: `Unsupported file type: ${fileField.mimetype}` });
     }
   } catch (err: any) {
     console.error("Extract error:", err);
