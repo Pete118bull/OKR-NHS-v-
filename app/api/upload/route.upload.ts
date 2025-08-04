@@ -25,19 +25,16 @@ export async function POST(req: NextRequest) {
 
     const run = await openai.beta.threads.runs.create(threadId, {
       assistant_id: process.env.OKR_ASSISTANT_ID!,
-      instructions: `
-When a file is uploaded:
-1. Read and analyse for outcome, impact, key steps, dependencies, and OKRs.
-2. Begin your response with: “Thanks, it looks like you are trying to…” followed by a single-sentence summary of the document's purpose.
-3. Then ask: “Would you like to review or refine this OKR together using the logic model and OKR framework?”
-      `.trim(),
+      instructions: `Your existing instructions here...`.trim(),
     });
 
     let runStatus = run.status;
     while (!['completed', 'failed', 'cancelled'].includes(runStatus)) {
       await new Promise((r) => setTimeout(r, 2000));
-      // **Correct signature for v5.11:** pass two arguments
-      const updated = await openai.beta.threads.runs.retrieve(threadId, run.id);
+      const updated = await openai.beta.threads.runs.retrieve({
+        thread_id: threadId,
+        run_id: run.id,
+      });
       runStatus = updated.status;
     }
 
@@ -52,16 +49,15 @@ When a file is uploaded:
         ? latest.content[0].text.value
         : '[No assistant response found]';
 
-    return NextResponse.json({
-      thread_id: threadId,
-      run_id: run.id,
-      reply,
-    });
+    return NextResponse.json({ thread_id: threadId, run_id: run.id, reply });
   } catch (err: any) {
     console.error('Upload handler error:', err);
-    return NextResponse.json({ error: err.message || 'Upload failed' }, { status: 500 });
+    return NextResponse.json({
+      error: err.message || 'Upload failed',
+    }, { status: 500 });
   }
 }
+
 
 
 
