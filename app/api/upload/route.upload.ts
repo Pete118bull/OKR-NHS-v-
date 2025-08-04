@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+""import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 
-const openai = new OpenAI(); // Uses OPENAI_API_KEY from environment
+const openai = new OpenAI();
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,13 +19,11 @@ export async function POST(req: NextRequest) {
       purpose: "assistants",
     });
 
-    // Add message to thread with the file (5.11 format)
+    // Add message to thread with the file
     await openai.beta.threads.messages.create(threadId, {
       role: "user",
-      content: [
-        { type: "text", text: "Please review this document for OKRs." },
-        { type: "file", file_id: uploadedFile.id },
-      ],
+      content: "Please review this document for OKRs.",
+      file_ids: [uploadedFile.id],
     });
 
     // Start a Run with explicit upload instructions
