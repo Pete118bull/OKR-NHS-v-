@@ -8,30 +8,43 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const file = formData.get('file') as File;
     const threadId = formData.get('threadId') as string;
+
     if (!file || !threadId) {
       return NextResponse.json({ error: 'Missing file or threadId' }, { status: 400 });
     }
 
+    // Upload the file to OpenAI
     const uploadedFile = await openai.files.create({
       file,
       purpose: 'assistants',
     });
 
+    // Add message to thread with the file attachment
     await openai.beta.threads.messages.create(threadId, {
       role: 'user',
       content: 'Please review this document for OKRs.',
       attachments: [{ file_id: uploadedFile.id }],
     });
 
+    // Start a run with assistant
     const run = await openai.beta.threads.runs.create(threadId, {
       assistant_id: process.env.OKR_ASSISTANT_ID!,
-      instructions: `...`, // your existing instructions
+      instructions: `
+When a file is uploaded:
+1. Read and analyse for outcome, impact, key steps, dependencies, and OKRs.
+2. Begin your response with: “Thanks, it looks like you are trying to…” followed by a single-sentence summary of the document's purpose.
+3. Then ask: “Would you like to review or refine this OKR together using the logic model and OKR framework?”
+      `.trim(),
     });
 
+    // Poll until run completes
     let runStatus = run.status;
     while (!['completed', 'failed', 'cancelled'].includes(runStatus)) {
       await new Promise((r) => setTimeout(r, 2000));
-      const updated = await openai.beta.threads.runs.retrieve(threadId, run.id);
+      const updated = await openai.beta.threads.runs.retrieve({
+        thread_id: threadId,
+        run_id: run.id,
+      });
       runStatus = updated.status;
     }
 
@@ -39,6 +52,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Assistant run failed or was cancelled.' }, { status: 500 });
     }
 
+    // Retrieve latest assistant message
     const messageList = await openai.beta.threads.messages.list(threadId);
     const latest = messageList.data.find((m) => m.role === 'assistant');
     const reply =
