@@ -28,15 +28,17 @@ export async function POST(req: NextRequest) {
       instructions: `Your existing instructions here...`.trim(),
     });
 
-    let runStatus = run.status;
-    while (!['completed', 'failed', 'cancelled'].includes(runStatus)) {
-      await new Promise((r) => setTimeout(r, 2000));
-      const updated = await openai.beta.threads.runs.retrieve({
-        thread_id: threadId,
-        run_id: run.id,
-      });
-      runStatus = updated.status;
-    }
+let runStatus = run.status;
+while (!['completed', 'failed', 'cancelled'].includes(runStatus)) {
+  await new Promise((r) => setTimeout(r, 2000));
+  const updated = await openai.beta.threads.runs.retrieve({
+    thread_id: threadId,
+    run_id: run.id,
+  });
+  runStatus = updated.status;
+}
+
+
 
     if (runStatus !== 'completed') {
       return NextResponse.json({ error: 'Assistant run failed or was cancelled.' }, { status: 500 });
