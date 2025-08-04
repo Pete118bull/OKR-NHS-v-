@@ -19,14 +19,14 @@ export async function POST(req: NextRequest) {
       purpose: 'assistants',
     });
 
-    // Add message with attachment to the thread
+    // Send message with file attached
     await openai.beta.threads.messages.create(threadId, {
       role: 'user',
       content: 'Please review this document for OKRs.',
       attachments: [{ file_id: uploadedFile.id }],
     });
 
-    // Start a run
+    // Start assistant run
     const run = await openai.beta.threads.runs.create(threadId, {
       assistant_id: process.env.OKR_ASSISTANT_ID!,
       instructions: `
@@ -37,11 +37,14 @@ When a file is uploaded:
       `.trim(),
     });
 
-    // Poll for completion
+    // Poll run status
     let runStatus = run.status;
     while (!['completed', 'failed', 'cancelled'].includes(runStatus)) {
       await new Promise((r) => setTimeout(r, 2000));
-      const updated = await openai.beta.threads.runs.retrieve(threadId, run.id);
+      const updated = await openai.beta.threads.runs.retrieve({
+        thread_id: threadId,
+        run_id: run.id,
+      });
       runStatus = updated.status;
     }
 
@@ -49,10 +52,9 @@ When a file is uploaded:
       return NextResponse.json({ error: 'Assistant run failed or was cancelled.' }, { status: 500 });
     }
 
-    // Get assistant reply
+    // Get latest assistant response
     const messageList = await openai.beta.threads.messages.list(threadId);
     const latest = messageList.data.find((m) => m.role === 'assistant');
-
     const reply =
       latest?.content?.[0]?.type === 'text'
         ? latest.content[0].text.value
