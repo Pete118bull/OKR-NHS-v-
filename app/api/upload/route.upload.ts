@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     await openai.beta.threads.messages.create(threadId, {
       role: "user",
       content: "Please review this document for OKRs.",
-      file_ids: [uploadedFile.id],
+      files: [uploadedFile.id],
     });
 
     // Start a Run with explicit upload instructions
