@@ -46,20 +46,17 @@ When a file is uploaded:
     // Poll for run to complete
     let runStatus = run.status;
     while (runStatus !== "completed" && runStatus !== "failed" && runStatus !== "cancelled") {
-  await new Promise((resolve) => setTimeout(resolve, 2000));
-  const updatedRun = await openai.beta.threads.runs.retrieve({
-    thread_id: threadId,
-    run_id: run.id,
-  });
-  runStatus = updatedRun.status;
-}
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      const updatedRun = await openai.beta.threads.runs.retrieve(threadId, run.id);
+      runStatus = updatedRun.status;
+    }
 
     if (runStatus !== "completed") {
       return NextResponse.json({ error: "Assistant run failed or was cancelled." }, { status: 500 });
     }
 
     // Get the latest assistant message
-    const messageList = await openai.beta.threads.messages.list({ thread_id: threadId });
+    const messageList = await openai.beta.threads.messages.list(threadId);
     const latestMessage = messageList.data.find((msg) => msg.role === "assistant");
 
     const reply =
@@ -77,5 +74,6 @@ When a file is uploaded:
     return NextResponse.json({ error: err.message || "Upload failed" }, { status: 500 });
   }
 }
+
 
 
