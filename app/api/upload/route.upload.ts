@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { OpenAI } from "openai";
+import OpenAI from "openai";
 
 const openai = new OpenAI(); // Uses OPENAI_API_KEY from environment
 
@@ -19,11 +19,13 @@ export async function POST(req: NextRequest) {
       purpose: "assistants",
     });
 
-    // Add message to thread with the file
+    // Add message to thread with the file (5.11 format)
     await openai.beta.threads.messages.create(threadId, {
       role: "user",
-      content: "Please review this document for OKRs.",
-      files: [uploadedFile.id],
+      content: [
+        { type: "text", text: "Please review this document for OKRs." },
+        { type: "file", file_id: uploadedFile.id },
+      ],
     });
 
     // Start a Run with explicit upload instructions
@@ -41,7 +43,7 @@ When a file is uploaded:
     let runStatus = run.status;
     while (runStatus !== "completed" && runStatus !== "failed" && runStatus !== "cancelled") {
       await new Promise((resolve) => setTimeout(resolve, 2000));
-      const updatedRun = await openai.beta.threads.runs.retrieve(run.id);
+      const updatedRun = await openai.beta.threads.runs.retrieve(threadId, run.id);
       runStatus = updatedRun.status;
     }
 
