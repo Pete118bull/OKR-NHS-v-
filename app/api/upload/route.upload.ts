@@ -36,10 +36,8 @@ When a file is uploaded:
     let runStatus = run.status;
     while (!['completed', 'failed', 'cancelled'].includes(runStatus)) {
       await new Promise((r) => setTimeout(r, 2000));
-      const updated = await openai.beta.threads.runs.retrieve({
-  thread_id: threadId,
-  run_id: run.id,
-});
+      // **Correct signature for v5.11:** pass two arguments
+      const updated = await openai.beta.threads.runs.retrieve(threadId, run.id);
       runStatus = updated.status;
     }
 
@@ -54,12 +52,17 @@ When a file is uploaded:
         ? latest.content[0].text.value
         : '[No assistant response found]';
 
-    return NextResponse.json({ thread_id: threadId, run_id: run.id, reply });
+    return NextResponse.json({
+      thread_id: threadId,
+      run_id: run.id,
+      reply,
+    });
   } catch (err: any) {
     console.error('Upload handler error:', err);
     return NextResponse.json({ error: err.message || 'Upload failed' }, { status: 500 });
   }
 }
+
 
 
 
