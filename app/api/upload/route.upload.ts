@@ -19,13 +19,11 @@ export async function POST(req: NextRequest) {
       purpose: "assistants",
     });
 
-    // Add message to thread with the file
+    // Add message to thread with the file (v5.11 compatible)
     await openai.beta.threads.messages.create(threadId, {
       role: "user",
-      content: [
-        { type: "text", text: "Please review this document for OKRs." },
-        { type: "file_id", file_id: uploadedFile.id },
-      ],
+      content: "Please review this document for OKRs.",
+      file_ids: [uploadedFile.id],
     });
 
     // Start a Run with explicit upload instructions
@@ -55,7 +53,7 @@ When a file is uploaded:
     }
 
     // Get the latest assistant message
-    const messageList = await openai.beta.threads.messages.list(threadId);
+    const messageList = await openai.beta.threads.messages.list({ thread_id: threadId });
     const latestMessage = messageList.data.find((msg) => msg.role === "assistant");
 
     const reply =
@@ -73,5 +71,6 @@ When a file is uploaded:
     return NextResponse.json({ error: err.message || "Upload failed" }, { status: 500 });
   }
 }
+
 
 
